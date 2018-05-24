@@ -17,7 +17,7 @@ class DYPhotoModel: NSObject {
     var asset: PHAsset? // 图片的资源
     var selectIndex: Int = 0// 选择的索引
     var isOriginImage: Bool = false // 是否是原图
-    var cacheImage: UIImage? //取出来的图片  跟 isOriginImage 有关
+    var cacheImage: UIImage? //从相册取出来的图片  跟 isOriginImage 有关
     var resultImage: UIImage? //最终处理过要使用的图片
     var videoURL: URL? // 视频的url
     
