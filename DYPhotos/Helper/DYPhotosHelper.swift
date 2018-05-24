@@ -444,7 +444,7 @@ extension UIImage {
         let screenScale = screenSize.width / screenSize.height
         let imageScale = (image?.size.width)! / (image?.size.height)!
         
-        var x = CGFloat(0)
+        let x = CGFloat(0)
         var y = CGFloat(0)
         var width = CGFloat(0)
         var height = CGFloat(0)
@@ -454,9 +454,12 @@ extension UIImage {
             height = width / imageScale
             y = (screenSize.height - height) / 2
         }else{
-            height = screenSize.height
-            width = height * imageScale
-            x = (screenSize.width - width) / 2
+            width = screenSize.width
+            height = width / imageScale
+            y = 0
+//            height = screenSize.height
+//            width = height * imageScale
+//            x = (screenSize.width - width) / 2
         }
         return CGRect(x: x, y: y, width: width, height: height)
     }

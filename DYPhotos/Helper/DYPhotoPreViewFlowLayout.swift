@@ -40,20 +40,25 @@ class DYPhotoPreViewFlowLayout: UICollectionViewFlowLayout {
     }
     
     override func targetContentOffset(forProposedContentOffset proposedContentOffset: CGPoint, withScrollingVelocity velocity: CGPoint) -> CGPoint {
-        let rect = CGRect.init(origin: proposedContentOffset, size: (self.collectionView?.bounds.size)!)
-        let attArray = super.layoutAttributesForElements(in: rect)
-        if attArray == nil {
-            return super.targetContentOffset(forProposedContentOffset: proposedContentOffset, withScrollingVelocity: velocity)
-        }
-        var gap = 1000
-        var offset = CGFloat(0.0)
-        for att in attArray! {
-            if CGFloat(gap) > abs(att.center.x - proposedContentOffset.x - (self.collectionView?.bounds.size.width)! * 0.5) {
-                gap = abs(Int(att.center.x - proposedContentOffset.x - (self.collectionView?.bounds.size.width)! * 0.5))
-                offset = att.center.x - proposedContentOffset.x - (self.collectionView?.bounds.size.width)! * 0.5
+        var offsetAdjustment = MAXFLOAT
+        //CGRectGetWidth: 返回矩形的宽度
+        let horizontalCenter = proposedContentOffset.x + (self.collectionView?.frame.size.width ?? 0) / 2.0
+        
+        //当前rect
+        let targetRect = CGRect(x: proposedContentOffset.x, y: 0, width: self.collectionView?.bounds.size.width ?? 0, height: self.collectionView?.bounds.size.height ?? 0)
+        
+        let array = super.layoutAttributesForElements(in: targetRect)
+        //对当前屏幕中的UICollectionViewLayoutAttributes逐个与屏幕中心进行比较，找出最接近中心的一个
+        for att in array! {
+            att.transform = CGAffineTransform(scaleX: 1, y: 1)
+            let itemHorizontalCenter = att.center.x;
+            if (abs(itemHorizontalCenter - horizontalCenter) < CGFloat(abs(offsetAdjustment)))
+            {
+                //与中心的位移差
+                offsetAdjustment = Float(itemHorizontalCenter - horizontalCenter);
             }
         }
-        let point = CGPoint.init(x: proposedContentOffset.x + offset , y: proposedContentOffset.y)
-        return point
+        //返回修改后停下的位置
+        return CGPoint(x:proposedContentOffset.x +  CGFloat(offsetAdjustment), y: proposedContentOffset.y);
     }
 }
