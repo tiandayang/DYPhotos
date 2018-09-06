@@ -91,6 +91,11 @@ extension ViewController:UICollectionViewDataSource,UICollectionViewDelegate,DYP
             }
             previewModels.append(previewModel)
         }
+        
+        let previewModel = DYPhotoPreviewModel()
+        previewModel.isVideo = true
+        previewModel.videoURL = "http://sunmu-bucket.oss-cn-hangzhou.aliyuncs.com/1530004410_ios.mp4?Expires=1530050892&OSSAccessKeyId=LTAIz9H8q2V1Eatn&Signature=VZ49Nc1W%2BSg53pDS4fuFa6loK9E%3D"
+        previewModels.append(previewModel)
         let previewVC = DYPhotoPreviewController()
         previewVC.dataArray = previewModels
         previewVC.selectIndex = indexPath.row
