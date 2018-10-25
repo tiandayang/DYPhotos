@@ -9,6 +9,11 @@
 import UIKit
 import Photos
 
+public enum DYCompressType {
+    case session
+    case timeline
+}
+
 class DYPhotosHelper {
 
     /// 获取包含图片的相册列表
@@ -123,47 +128,30 @@ class DYPhotosHelper {
     ///   - asset: asset
     ///   - isOrigin: 是否是原图
     ///   - complete: 回调 image对象
-    public class func requestImage(asset: PHAsset, isOrigin: Bool, complete:dyRequestImageComplete?) {
-        
+    public class func requestImage(asset: PHAsset?, isOrigin: Bool, complete:dyRequestImageComplete?) {
+    
+        guard let `asset` = asset else {
+            complete?(nil)
+            return }
         let options = PHImageRequestOptions()
-        var scale = 0.8
-        var size = PHImageManagerMaximumSize
-        if isOrigin {
-            size = PHImageManagerMaximumSize
-            scale = 1
-            options.deliveryMode = .highQualityFormat
-        }else{
-            options.deliveryMode = .opportunistic
-            options.resizeMode = .fast
-            let imagePixel = Double(asset.pixelWidth * asset.pixelHeight)/(1024.0 * 1024.0)
-            if imagePixel > 3  {
-//                size = CGSize(width: Double(asset.pixelWidth) * 0.6, height:Double(asset.pixelHeight) * 0.6)
-                scale = 0.1
-            }else if imagePixel > 2 {
-//                size = CGSize(width: Double(asset.pixelWidth) * 0.6, height:Double(asset.pixelHeight) * 0.6)
-                scale = 0.2
-            }else if imagePixel > 1 {
-//                size = CGSize(width: Double(asset.pixelWidth) * 0.6, height:Double(asset.pixelHeight) * 0.6)
-                scale = 0.5
-            }else{
-                size = PHImageManagerMaximumSize
+        //        let size = PHImageManagerMaximumSize
+        options.deliveryMode = .highQualityFormat
+        options.isNetworkAccessAllowed = true
+        options.isSynchronous = false
+        
+        PHImageManager.default().requestImageData(for: asset, options: options) { (data, string, orienttation, info) in
+            guard let `data` = data else {
+                complete?(nil)
+                return
             }
-        }
-        options.isNetworkAccessAllowed = false
-        PHImageManager.default().requestImage(for: asset, targetSize: size, contentMode: .aspectFill, options: options) { (image, info) in
             autoreleasepool{
-                var resultImage = image
-                if image != nil {
-                    let imageData = UIImageJPEGRepresentation(image!, CGFloat(scale))
-                    if imageData != nil {
-                        resultImage = UIImage(data: imageData!)
-                    }
-                }
-                DispatchQueue.main.async {
-                    if complete != nil {
-                        complete!(resultImage);
-                        dy_Print(Double(resultImage?.imageData()?.count ?? 0)/1024.0)
-                    }
+                let originImage = UIImage(data: data)
+                if !isOrigin {
+                    let resultImage = originImage?.dyCompress(type: .session)
+                    complete?(resultImage);
+                    dy_Print(Double(resultImage?.imageData()?.count ?? 0)/1024.0)
+                }else{
+                    complete?(originImage);
                 }
             }
         }
@@ -468,6 +456,107 @@ extension UIImage {
     public func imageData() -> Data? {
         return UIImageJPEGRepresentation(self, 1)
     }
+    
+    public func compressImage(toSize: CGSize) -> UIImage? {
+        var newImage: UIImage? = nil
+        let imageSize = self.size
+        let width = imageSize.width
+        let height = imageSize.height
+        let targetWidth = size.width
+        let targetHeight = size.height
+        var scaleFactor = CGFloat(0)
+        var scaledWidth = targetWidth
+        var scaledHeight = targetHeight
+        var thumbnailPoint = CGPoint(x:0.0,y: 0.0)
+        if !imageSize.equalTo(size) {
+            let widthFactor = targetWidth / width
+            let heightFactor = targetHeight / height
+            if(widthFactor > heightFactor){
+                scaleFactor = CGFloat(widthFactor)
+            }
+            else{
+                scaleFactor = CGFloat(heightFactor)
+            }
+            scaledWidth = width * scaleFactor
+            scaledHeight = height * scaleFactor
+            if(widthFactor > heightFactor){
+                thumbnailPoint.y = (targetHeight - scaledHeight) * 0.5
+            }else if(widthFactor < heightFactor){
+                thumbnailPoint.x = (targetWidth - scaledWidth) * 0.5
+            }
+        }
+        
+        var thumbnailRect = CGRect.zero
+        thumbnailRect.origin = thumbnailPoint
+        thumbnailRect.size.width = floor(scaledWidth)
+        thumbnailRect.size.height = floor(scaledHeight)
+        UIGraphicsBeginImageContext(thumbnailRect.size)
+        self .draw(in: thumbnailRect)
+        newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
+    
+    func dyCompress(type: DYCompressType = .timeline) -> UIImage {
+        let size = self.dyImageSize(type: type)
+        let reImage = resizedImage(size: size)
+        let data = UIImageJPEGRepresentation(reImage, 0.5)!
+        return UIImage.init(data: data)!
+    }
+    
+    private func dyImageSize(type: DYCompressType) -> CGSize {
+        var width = self.size.width
+        var height = self.size.height
+        
+        var boundary: CGFloat = 1280
+        
+        // width, height <= 1280, Size remains the same
+        guard width > boundary || height > boundary else {
+            return CGSize(width: width, height: height)
+        }
+        
+        // aspect ratio
+        let s = max(width, height) / min(width, height)
+        if s <= 2 {
+            // Set the larger value to the boundary, the smaller the value of the compression
+            let x = max(width, height) / boundary
+            if width > height {
+                width = boundary
+                height = height / x
+            } else {
+                height = boundary
+                width = width / x
+            }
+        } else {
+            // width, height > 1280
+            if min(width, height) >= boundary {
+                boundary = type == .session ? 800 : 1280
+                // Set the smaller value to the boundary, and the larger value is compressed
+                let x = min(width, height) / boundary
+                if width < height {
+                    width = boundary
+                    height = height / x
+                } else {
+                    height = boundary
+                    width = width / x
+                }
+            }
+        }
+        return CGSize(width: width, height: height)
+    }
+    
+    private func resizedImage(size: CGSize) -> UIImage {
+        let newRect = CGRect(x: 0, y: 0, width: ceil(size.width), height: ceil(size.height))
+        var newImage: UIImage!
+        UIGraphicsBeginImageContext(newRect.size)
+        newImage = UIImage(cgImage: self.cgImage!, scale: 1, orientation: self.imageOrientation)
+        newImage.draw(in: newRect)
+        newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage
+    }
+    
 }
 
 extension String {
